@@ -30,9 +30,10 @@ class Pix2PixModel(BaseModel):
         """
         # changing the default values to match the pix2pix paper (https://phillipi.github.io/pix2pix/)
         parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
+        # train and test 都需要这个参数
+        parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
-            parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
 
         return parser
 
@@ -86,6 +87,17 @@ class Pix2PixModel(BaseModel):
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.fake_B = self.netG(self.real_A)  # G(A)
+        
+    def cal_loss(self):
+        """Calculate GAN and L1 loss"""
+        # First, G(A) should fake the discriminator
+        # fake_AB = torch.cat((self.real_A, self.fake_B), 1)
+        # self.loss_G_GAN = self.criterionGAN(pred_fake, True)
+        # Second, G(A) = B
+        if not hasattr(self, 'criterionL1'):
+            self.criterionL1 = torch.nn.L1Loss()
+            
+        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""

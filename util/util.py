@@ -1,6 +1,7 @@
 """This module contains simple helper functions """
 from __future__ import print_function
 import torch
+import shutil
 import numpy as np
 from PIL import Image
 import os
@@ -99,5 +100,5 @@ def mkdir(path):
     Parameters:
         path (str) -- a single directory path
     """
-    if not os.path.exists(path):
-        os.makedirs(path)
+    if not os.path.isdir(path):
+        os.mkdir(path)

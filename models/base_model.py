@@ -75,6 +75,11 @@ class BaseModel(ABC):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
         pass
 
+    @abstractmethod
+    def cal_loss(self):
+        """Calculate losses only"""
+        pass
+
     def setup(self, opt):
         """Load and print networks; create schedulers
 
@@ -104,6 +109,7 @@ class BaseModel(ABC):
         with torch.no_grad():
             self.forward()
             self.compute_visuals()
+            self.cal_loss()
 
     def compute_visuals(self):
         """Calculate additional output images for visdom and HTML visualization"""
