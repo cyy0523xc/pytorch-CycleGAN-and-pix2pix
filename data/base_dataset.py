@@ -65,26 +65,35 @@ def get_params(opt, size):
     w, h = size
     new_h = h
     new_w = w
+    # load size是可以浮动的
+    load_size = opt.load_size
+    diff = 0
+    if load_size > 0:
+        diff = int(load_size * opt.load_size_rand)
+        diff = random.randint(0, 2*diff) - diff
+        load_size = load_size + diff
+
     if opt.preprocess == 'resize_and_crop':
-        new_h = new_w = opt.load_size
+        new_h = new_w = load_size
     elif opt.preprocess == 'scale_width_and_crop':
-        new_w = opt.load_size
-        new_h = opt.load_size * h // w
+        new_w = load_size
+        new_h = load_size * h // w
 
     x = random.randint(0, np.maximum(0, new_w - opt.crop_size))
     y = random.randint(0, np.maximum(0, new_h - opt.crop_size))
-
     flip = random.random() > 0.5
+    return {'crop_pos': (x, y), 'flip': flip, 'diff': diff}
 
-    return {'crop_pos': (x, y), 'flip': flip}
 
-
-def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True, noise=True):
+def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True):
     transform_list = []
     if grayscale:
         transform_list.append(transforms.Grayscale(1))
     if 'resize' in opt.preprocess:
-        osize = [opt.load_size, opt.load_size]
+        if params is None:
+            osize = [opt.load_size+params['diff'], opt.load_size+params['diff']]
+        else:
+            osize = [opt.load_size, opt.load_size]
         transform_list.append(transforms.Resize(osize, method))
     elif 'scale_width' in opt.preprocess:
         transform_list.append(transforms.Lambda(lambda img: __scale_width(img, opt.load_size, opt.crop_size, method)))
@@ -103,10 +112,6 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
             transform_list.append(transforms.RandomHorizontalFlip())
         elif params['flip']:
             transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
-
-    if noise:
-        # 增加噪点
-        pass
 
     if convert:
         transform_list += [transforms.ToTensor()]
