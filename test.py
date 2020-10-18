@@ -57,29 +57,42 @@ if __name__ == '__main__':
     # For [CycleGAN]: It should not affect CycleGAN as CycleGAN uses instancenorm without dropout.
     if opt.eval:
         model.eval()
-    start = time.time()
-    total_loss = {'total': 0}
-    for i, data in enumerate(dataset):
-        if i >= opt.num_test:  # only apply our model to opt.num_test images.
-            break
-        model.set_input(data)  # unpack data from data loader
-        model.test()           # run inference
-        visuals = model.get_current_visuals()  # get image results
-        img_path = model.get_image_paths()     # get image paths
 
-        # 计算loss
-        epoch_loss = model.get_test_losses()
-        total_loss['total'] += 1
-        for key, val in epoch_loss.items():
+    total_loss = dict()
+    for epoch in range(opt.test_epochs):
+        print('*'*40, epoch, '*'*40)
+        start = time.time()
+        epoch_loss = {'total': 0}
+        for i, data in enumerate(dataset):
+            if i >= opt.num_test:  # only apply our model to opt.num_test images.
+                break
+            model.set_input(data)  # unpack data from data loader
+            model.test()           # run inference
+            visuals = model.get_current_visuals()  # get image results
+            img_path = model.get_image_paths()     # get image paths
+
+            # 计算loss
+            loss = model.get_test_losses()
+            epoch_loss['total'] += 1
+            for key, val in loss.items():
+                if key not in epoch_loss:
+                    epoch_loss[key] = 0.0
+                epoch_loss[key] += val
+
+            if i % 5 == 0:  # save images to an HTML file
+                print('processing (%04d)-th image... %s' % (i, img_path))
+            save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
+        webpage.save()  # save the HTML
+
+        print('Time: ', time.time()-start)
+        for key in loss.keys():
             if key not in total_loss:
-                total_loss[key] = 0.0
-            total_loss[key] += val
+                total_loss[key] = 0
 
-        if i % 5 == 0:  # save images to an HTML file
-            print('processing (%04d)-th image... %s' % (i, img_path))
-        save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
-    webpage.save()  # save the HTML
+            total_loss[key] += epoch_loss[key]/epoch_loss['total']
+            print('Loss %s: %.4f' % (key, epoch_loss[key]/epoch_loss['total']))
 
-    print('Time: ', time.time()-start)
-    for key in epoch_loss.keys():
-        print('Loss %s: %.4f' % (key, total_loss[key]/total_loss['total']))
+    # total loss
+    print('*'*40, 'Total Loss: ', '*'*40)
+    for key in loss.keys():
+        print('    %s: %.4f' % (key, total_loss[key]/opt.test_epochs))
