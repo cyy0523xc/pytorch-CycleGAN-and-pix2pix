@@ -8,7 +8,6 @@ import torch.utils.data as data
 from PIL import Image
 import torchvision.transforms as transforms
 from abc import ABC, abstractmethod
-import imgaug.augmenters as iaa
 
 
 class BaseDataset(data.Dataset, ABC):
@@ -62,27 +61,34 @@ class BaseDataset(data.Dataset, ABC):
 
 
 def get_params(opt, size):
+    """
+    @param size 图像size: w,h
+    """
     w, h = size
-    new_h = h
-    new_w = w
-    # load size是可以浮动的
     load_size = opt.load_size
-    diff = 0
-    if load_size > 0:
-        diff = int(load_size * opt.load_size_rand)
+    if opt.load_size_range > 0:
+        # 随机缩放大小
+        diff = int(opt.load_size_range*load_size)
         diff = random.randint(0, 2*diff) - diff
-        load_size = load_size + diff
+        load_size += diff
 
+    new_w = load_size
+    new_h = load_size * h // w
+    """
     if opt.preprocess == 'resize_and_crop':
-        new_h = new_w = load_size
+        new_h = int(h / rate)
     elif opt.preprocess == 'scale_width_and_crop':
-        new_w = load_size
         new_h = load_size * h // w
+    """
 
+    # 截取的左上角坐标
     x = random.randint(0, np.maximum(0, new_w - opt.crop_size))
     y = random.randint(0, np.maximum(0, new_h - opt.crop_size))
+
+    # 是否翻转
     flip = random.random() > 0.5
-    return {'crop_pos': (x, y), 'flip': flip, 'diff': diff}
+    # print('new size: ', (new_w, new_h), size)
+    return {'crop_pos': (x, y), 'flip': flip, 'size': (new_w, new_h)}
 
 
 def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True):
@@ -90,10 +96,11 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
     if grayscale:
         transform_list.append(transforms.Grayscale(1))
     if 'resize' in opt.preprocess:
-        if params is None:
-            osize = [opt.load_size+params['diff'], opt.load_size+params['diff']]
+        if params is not None:
+            osize = params['size'][::-1]
         else:
             osize = [opt.load_size, opt.load_size]
+        # print('----', params)
         transform_list.append(transforms.Resize(osize, method))
     elif 'scale_width' in opt.preprocess:
         transform_list.append(transforms.Lambda(lambda img: __scale_width(img, opt.load_size, opt.crop_size, method)))
@@ -113,7 +120,7 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
         elif params['flip']:
             transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
 
-    if convert:
+    if convert and not opt.no_convert:
         transform_list += [transforms.ToTensor()]
         if grayscale:
             transform_list += [transforms.Normalize((0.5,), (0.5,))]

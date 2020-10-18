@@ -33,8 +33,8 @@ tar -zcvf "$filename" \
     --exclude ".git" \
     --exclude ".*" \
     --exclude ".swp" \
-    --exclude ".ipynb" \
-    --exclude ".tar.gz" \
+    --exclude "*.ipynb" \
+    --exclude "*.tar.gz" \
     --exclude "__pycache__" \
     --exclude "zip.sh" \
     "$name"
