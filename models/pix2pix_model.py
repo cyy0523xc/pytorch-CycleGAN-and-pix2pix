@@ -33,7 +33,8 @@ class Pix2PixModel(BaseModel):
         # train and test 都需要这个参数
         parser.add_argument('--loss_fun', type=str, default='l2', help='损失函数: l1, l2, l1l2')
         parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
-        parser.add_argument('--lambda_L2', type=float, default=12, help='L2损失中的输入参数的权重')
+        parser.add_argument('--lambda_L2', type=float, default=16, help='L2损失中的输入参数的倍数，将差值放大，这样计算平方时，差异就会指数放大')
+        parser.add_argument('--lambda_L2_w', type=float, default=1, help='L2损失中的输入参数的权重')
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
 
@@ -84,7 +85,7 @@ class Pix2PixModel(BaseModel):
             return self.l1_loss(fake, real) * self.opt.lambda_L1
         def l2():
             param = self.opt.lambda_L2
-            return self.l2_loss(fake*param, real*param)
+            return self.l2_loss(fake*param, real*param) * self.opt.lambda_L2_w
 
         if self.opt.loss_fun == 'l2':
             return l2()
