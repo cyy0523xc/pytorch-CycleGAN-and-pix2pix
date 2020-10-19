@@ -91,7 +91,10 @@ def get_params(opt, size):
     return {'crop_pos': (x, y), 'flip': flip, 'size': (new_w, new_h)}
 
 
-def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True):
+def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True, color=False):
+    """
+    :param color bool 是否需要颜色变换
+    """
     transform_list = []
     if grayscale:
         transform_list.append(transforms.Grayscale(1))
@@ -121,7 +124,7 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
             transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
 
     # 随机改变图片的亮度、对比度和饱和度
-    if any([opt.brightness > 0, opt.contrast > 0, opt.saturation > 0, opt.hue > 0]):
+    if color and any([opt.brightness > 0, opt.contrast > 0, opt.saturation > 0, opt.hue > 0]):
         p = [opt.brightness, opt.contrast, opt.saturation, opt.hue]
         transform_list.append(transforms.ColorJitter(*p))
 
