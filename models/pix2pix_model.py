@@ -63,10 +63,11 @@ class Pix2PixModel(BaseModel):
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, opt.netD,
                                           opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
 
-        if opt.loss_fun == 'l2':
-            self._loss_fun = torch.nn.MSELoss()
-        else:
-            self._loss_fun = torch.nn.L1Loss()
+        # 损失函数
+        self.l2_loss = torch.nn.MSELoss()
+        self.l1_loss = torch.nn.L1Loss()
+        if opt.loss_fun not in ('l1', 'l2', 'l1l2'):
+            raise Exception('损失函数不支持：%s' % opt.loss_fun)
 
         if self.isTrain:
             # define loss functions
@@ -79,10 +80,18 @@ class Pix2PixModel(BaseModel):
 
     def criterionL1(self, fake, real):
         """自定义损失函数"""
+        def l1():
+            return self.l1_loss(fake, real) * self.opt.lambda_L1
+        def l2():
+            param = self.opt.lambda_L2
+            return self.l2_loss(fake*param, real*param)
+
         if self.opt.loss_fun == 'l2':
-            l2 = self.opt.lambda_L2
-            return self._loss_fun(fake*l2, real*l2) * self.opt.lambda_L1
-        return self._loss_fun(fake, real) * self.opt.lambda_L1
+            return l2()
+        if self.opt.loss_fun == 'l1l2':
+            return l1() + l2()
+        # L1
+        return l1()
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
