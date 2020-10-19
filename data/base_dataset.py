@@ -120,6 +120,11 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
         elif params['flip']:
             transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
 
+    # 随机改变图片的亮度、对比度和饱和度
+    if any([opt.brightness > 0, opt.contrast > 0, opt.saturation > 0, opt.hue > 0]):
+        p = [opt.brightness, opt.contrast, opt.saturation, opt.hue]
+        transform_list.append(transforms.ColorJitter(*p))
+
     if convert:
         transform_list += [transforms.ToTensor()]
         if not opt.no_convert:

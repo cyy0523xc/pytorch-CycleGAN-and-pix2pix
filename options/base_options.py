@@ -56,6 +56,13 @@ class BaseOptions():
         parser.add_argument('--load_iter', type=int, default='0', help='which iteration to load? if load_iter > 0, the code will load models by iter_[load_iter]; otherwise, the code will load models by [epoch]')
         parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{netG}_size{load_size}')
+
+        # 随机改变图片的亮度、对比度和饱和度
+        parser.add_argument('--brightness', type=float, default=0, help='调整亮度的程度，亮度因子(brightness_factor)从 [max(0,1-brightness), 1+brightness] 中均匀选取')
+        parser.add_argument('--contrast', type=float, default=0, help='调整对比度的程度，对比度因子(contrast_factor)从 [max(0,1-contrast),1+contrast] 中均匀选取。')
+        parser.add_argument('--saturation', type=float, default=0, help='调整饱和度的程度，饱和度因子(saturation_factor)[max(0,1-saturation),1+saturation] 中均匀选取。')
+        parser.add_argument('--hue', type=float, default=0, help='调整色相的程度，色相因子(hue_factor)从 [-hue,hue] 等均匀选择, 其中hue的大小为 [0, 0.5]。')
+
         self.initialized = True
         return parser
 

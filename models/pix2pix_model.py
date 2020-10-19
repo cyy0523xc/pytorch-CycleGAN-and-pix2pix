@@ -31,9 +31,9 @@ class Pix2PixModel(BaseModel):
         # changing the default values to match the pix2pix paper (https://phillipi.github.io/pix2pix/)
         parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
         # train and test 都需要这个参数
-        parser.add_argument('--loss_fun', type=str, default='l2', help='损失函数')
+        parser.add_argument('--loss_fun', type=str, default='l2', help='损失函数: l1, l2, l1l2')
         parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
-        parser.add_argument('--lambda_L2', type=float, default=12, help='L2损失中的倍数')
+        parser.add_argument('--lambda_L2', type=float, default=12, help='L2损失中的输入参数的权重')
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
 
