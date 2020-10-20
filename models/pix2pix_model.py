@@ -48,7 +48,7 @@ class Pix2PixModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake']
+        self.loss_names = ['G_GAN', 'G_L1', 'G_L2', 'D_real', 'D_fake']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -80,19 +80,17 @@ class Pix2PixModel(BaseModel):
             self.optimizers.append(self.optimizer_D)
 
     def criterionL1(self, fake, real):
-        """自定义损失函数"""
-        def l1():
-            return self.l1_loss(fake, real) * self.opt.lambda_L1
-        def l2():
-            param = self.opt.lambda_L2
-            return self.l2_loss(fake*param, real*param) * self.opt.lambda_L2_w
+        """L1损失函数"""
+        if self.opt.loss_fun in ('l2'):
+            return 0
+        return self.l1_loss(fake, real) * self.opt.lambda_L1
 
-        if self.opt.loss_fun == 'l2':
-            return l2()
-        if self.opt.loss_fun == 'l1l2':
-            return l1() + l2()
-        # L1
-        return l1()
+    def criterionL2(self, fake, real):
+        """L2损失函数"""
+        if self.opt.loss_fun in ('l1'):
+            return 0
+        param = self.opt.lambda_L2
+        return self.l2_loss(fake*param, real*param) * self.opt.lambda_L2_w
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -118,6 +116,7 @@ class Pix2PixModel(BaseModel):
         # self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B)
+        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B)
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
@@ -141,8 +140,9 @@ class Pix2PixModel(BaseModel):
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B)
+        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B)
         # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1
+        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_L2
         self.loss_G.backward()
 
     def optimize_parameters(self):
