@@ -58,8 +58,7 @@ class ImageFolder(data.Dataset):
             img = self.transform(img)
         if self.return_paths:
             return img, path
-        else:
-            return img
+        return img
 
     def __len__(self):
         return len(self.imgs)

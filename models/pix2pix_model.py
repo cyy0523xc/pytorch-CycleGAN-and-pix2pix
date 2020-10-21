@@ -108,6 +108,11 @@ class Pix2PixModel(BaseModel):
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.fake_B = self.netG(self.real_A)  # G(A)
+
+    def predict(self, images):
+        """预测"""
+        images = images.to(self.device)
+        return self.netG(images)
         
     def cal_loss(self):
         """Calculate GAN and L1 loss"""

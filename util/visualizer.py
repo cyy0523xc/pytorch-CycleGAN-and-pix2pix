@@ -13,6 +13,23 @@ else:
     VisdomExceptionBase = ConnectionError
 
 
+def save_images_only(image_dir, image_path, visuals, aspect_ratio=1.0):
+    """Save images to the disk.
+
+    Parameters:
+        image_path (str)         -- the string is used to create image paths
+        visuals (OrderedDict)    -- an ordered dictionary that stores (name, images (either tensor or numpy) ) pairs
+        aspect_ratio (float)     -- the aspect ratio of saved images
+    """
+    short_path = ntpath.basename(image_path[0])
+    name = os.path.splitext(short_path)[0]
+    for label, im_data in visuals.items():
+        im = util.tensor2im(im_data)
+        image_name = '%s_%s.png' % (name, label)
+        save_path = os.path.join(image_dir, image_name)
+        util.save_image(im, save_path, aspect_ratio=aspect_ratio)
+
+
 def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=1920):
     """Save images to the disk.
 

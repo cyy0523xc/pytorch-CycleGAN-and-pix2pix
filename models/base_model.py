@@ -80,6 +80,11 @@ class BaseModel(ABC):
         """Calculate losses only"""
         pass
 
+    @abstractmethod
+    def predict(self, images):
+        """预测"""
+        pass
+
     def setup(self, opt):
         """Load and print networks; create schedulers
 
