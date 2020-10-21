@@ -15,8 +15,7 @@ class ImageDataset(data.Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        path = self.imgs[index]
-        img = self.loader(path)
+        img = self.imgs[index]
         return self.transform(img)
 
     def __len__(self):

@@ -77,19 +77,16 @@ if __name__ == '__main__':
         print('creating result directory: ', image_dir)
         os.makedirs(image_dir)
 
-    print('*'*40, epoch, '*'*40)
+    print('*'*40)
     start = time.time()
-    for i, data in enumerate(dataset):
-        model.set_input(data)  # unpack data from data loader
-        result = model.predict()        # run inference
+    for i, data in enumerate(dataloader):
+        # print(data.shape)     # torch.Size([16, 3, 512, 512])
+        result = model.predict(data)        # run inference
 
         if i % 5 == 0:  # save images to an HTML file
-            print('processing (%04d)-th image... %s' % (i, img_path))
+            print('processing (%04d)-th image...' % i)
 
         # 保存图像
-        print(result)
-        print(result.shape)
-        break
-        # save_images_only(image_dir, visuals, img_path, aspect_ratio=opt.aspect_ratio)
+        save_images_only(image_dir, result, data)
 
     print('Time: ', time.time()-start)

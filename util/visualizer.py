@@ -3,6 +3,8 @@ import os
 import sys
 import ntpath
 import time
+from PIL import Image
+import torchvision.transforms as transforms
 from . import util, html
 from subprocess import Popen, PIPE
 
@@ -12,22 +14,35 @@ if sys.version_info[0] == 2:
 else:
     VisdomExceptionBase = ConnectionError
 
+# 保存index
+save_idx = 0
 
-def save_images_only(image_dir, image_path, visuals, aspect_ratio=1.0):
+
+def to_image(tensor):
+    """"""
+    im = tensor.cpu().detach().numpy()  # convert it into a numpy array
+    if im.shape[0] == 1:  # grayscale to RGB
+        im = np.tile(im, (3, 1, 1))
+    im = (np.transpose(im, (1, 2, 0)) + 1) / 2.0 * 255.0  # post-processing: tranpose and scaling
+    return im.astype(np.uint8)
+
+
+def save_images_only(image_dir, images, raw_images):
     """Save images to the disk.
-
-    Parameters:
-        image_path (str)         -- the string is used to create image paths
-        visuals (OrderedDict)    -- an ordered dictionary that stores (name, images (either tensor or numpy) ) pairs
-        aspect_ratio (float)     -- the aspect ratio of saved images
     """
-    short_path = ntpath.basename(image_path[0])
-    name = os.path.splitext(short_path)[0]
-    for label, im_data in visuals.items():
-        im = util.tensor2im(im_data)
-        image_name = '%s_%s.png' % (name, label)
+    global save_idx
+    for i in range(images.shape[0]):
+        im_data, raw_data = images[i], raw_images[i]
+        im = to_image(im_data)
+        raw = to_image(raw_data)
+        im = np.hstack((raw, im))
+
+        # save
+        image_name = 's%05d.png' % save_idx
         save_path = os.path.join(image_dir, image_name)
-        util.save_image(im, save_path, aspect_ratio=aspect_ratio)
+        im = Image.fromarray(im)
+        im.save(save_path)
+        save_idx += 1
 
 
 def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=1920):
