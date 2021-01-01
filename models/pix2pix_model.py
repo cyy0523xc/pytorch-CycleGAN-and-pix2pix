@@ -35,6 +35,7 @@ class Pix2PixModel(BaseModel):
         parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
         parser.add_argument('--lambda_L2', type=float, default=16, help='L2损失中的输入参数的倍数，将差值放大，这样计算平方时，差异就会指数放大')
         parser.add_argument('--lambda_L2_w', type=float, default=1, help='L2损失中的输入参数的权重')
+        parser.add_argument('--accumulation_steps', type=int, default=1, help='累积次数更新梯度，显存比较小时，可以加大该值，通常可以减少训练波动')
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
 
@@ -78,6 +79,13 @@ class Pix2PixModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+
+        # 累积梯度需要该参数
+        self.batch_i = 0
+        assert self.opt.accumulation_steps > 0
+        assert self.opt.lambda_L1 > 0
+        assert self.opt.lambda_L2 > 0
+        assert self.opt.lambda_L2_w > 0
 
     def criterionL1(self, fake, real):
         """L1损失函数"""
@@ -135,6 +143,9 @@ class Pix2PixModel(BaseModel):
         self.loss_D_real = self.criterionGAN(pred_real, True)
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
+        # 累积梯度
+        if self.opt.accumulation_steps > 1:
+            self.loss_D = self.loss_D / self.opt.accumulation_steps
         self.loss_D.backward()
 
     def backward_G(self):
@@ -148,17 +159,31 @@ class Pix2PixModel(BaseModel):
         self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B)
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_L2
+        # 累积梯度
+        if self.opt.accumulation_steps > 1:
+            self.loss_G = self.loss_G / self.opt.accumulation_steps
         self.loss_G.backward()
 
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
+        is_first, is_update = True, True
+        if self.opt.accumulation_steps > 1:
+            self.batch_i += 1
+            is_first = self.batch_i % self.opt.accumulation_steps == 1
+            is_update = self.batch_i % self.opt.accumulation_steps == 0
+
         # update D
         self.set_requires_grad(self.netD, True)  # enable backprop for D
-        self.optimizer_D.zero_grad()     # set D's gradients to zero
-        self.backward_D()                # calculate gradients for D
-        self.optimizer_D.step()          # update D's weights
+        if is_first:
+            self.optimizer_D.zero_grad()     # set D's gradients to zero
+        self.backward_D()                    # calculate gradients for D
+        if is_update:
+            self.optimizer_D.step()          # update D's weights
+
         # update G
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
-        self.optimizer_G.zero_grad()        # set G's gradients to zero
-        self.backward_G()                   # calculate graidents for G
-        self.optimizer_G.step()             # udpate G's weights
+        if is_first:
+            self.optimizer_G.zero_grad()        # set G's gradients to zero
+        self.backward_G()                       # calculate graidents for G
+        if is_update:
+            self.optimizer_G.step()             # udpate G's weights
