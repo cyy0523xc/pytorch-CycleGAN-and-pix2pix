@@ -1,6 +1,9 @@
 import torch
+import torch.nn.functional as F
 from .base_model import BaseModel
 from . import networks
+
+
 
 
 class Pix2PixModel(BaseModel):
@@ -32,9 +35,11 @@ class Pix2PixModel(BaseModel):
         parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
         # train and test 都需要这个参数
         parser.add_argument('--loss_fun', type=str, default='l2', help='损失函数: l1, l2, l1l2')
+        parser.add_argument('--l1_weight_auto', type=bool, default=False, help='该值若为True，L1 Loss自使用自适应权重')
+        parser.add_argument('--l2_weight_auto', type=bool, default=False, help='该值若为True，L2 Loss自使用自适应权重')
+        parser.add_argument('--loss_kernel_size', type=int, default=3, help='')
         parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
-        parser.add_argument('--lambda_L2', type=float, default=16, help='L2损失中的输入参数的倍数，将差值放大，这样计算平方时，差异就会指数放大')
-        parser.add_argument('--lambda_L2_w', type=float, default=1, help='L2损失中的输入参数的权重')
+        parser.add_argument('--lambda_L2', type=float, default=16, help='L2损失中的输入参数的权重')
         parser.add_argument('--accumulation_steps', type=int, default=1, help='累积次数更新梯度，显存比较小时，可以加大该值，通常可以减少训练波动')
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
@@ -85,20 +90,41 @@ class Pix2PixModel(BaseModel):
         assert self.opt.accumulation_steps > 0
         assert self.opt.lambda_L1 > 0
         assert self.opt.lambda_L2 > 0
-        assert self.opt.lambda_L2_w > 0
+
+        # 损失函数的卷积核
+        size = self.opt.loss_kernel_size
+        kernel = torch.Tensor([1]*size*size)
+        kernel = kernel.resize(1, 1, size, size)
+        kernel = kernel.to(self.device)
+        print("kernel shape: ", kernel.shape)
+        self.loss_kernel = kernel
+
+    def loss_weight_map(self, real, fake):
+        """计算损失函数权重"""
+        diff = torch.abs(real - fake)
+        w = F.conv2d(diff, self.loss_kernel, stride=1, 
+                     padding=self.opt.loss_kernel_size//2)
+        return w + 1
 
     def criterionL1(self, fake, real):
         """L1损失函数"""
         if self.opt.loss_fun in ('l2'):
             return 0
+        if self.opt.l1_weight_auto:
+            w = self.loss_weight_map(real, fake)
+            real, fake = real*w, fake*w
+
         return self.l1_loss(fake, real) * self.opt.lambda_L1
 
     def criterionL2(self, fake, real):
         """L2损失函数"""
         if self.opt.loss_fun in ('l1'):
             return 0
-        param = self.opt.lambda_L2
-        return self.l2_loss(fake*param, real*param) * self.opt.lambda_L2_w
+        if self.opt.l2_weight_auto:
+            w = self.loss_weight_map(real, fake)
+            real, fake = real*w, fake*w
+
+        return self.l2_loss(fake, real) * self.opt.lambda_L2
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
